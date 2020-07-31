@@ -1,7 +1,7 @@
 MRuby::Gem::Specification.new 'mruby-torch' do |spec|
   spec.license = 'MIT'
   spec.authors = 'take-cheeze'
-  spec.version = '1.5.1'
+  spec.version = '1.6.0'
 
   libtorch_url = "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-#{spec.version}%2Bcpu.zip"
   libtorch_zip = "#{build_dir}/libtorch-#{spec.version}.zip"
@@ -18,10 +18,14 @@ MRuby::Gem::Specification.new 'mruby-torch' do |spec|
 
   file torch_header => libtorch_zip do |t|
     Dir.chdir "#{build_dir}" do
-      sh "unzip -o libtorch-#{spec.version}.zip"
+      sh "unzip -q -o libtorch-#{spec.version}.zip"
     end
     FileUtils.touch t.name
   end
+
+  linker.library_paths << "#{torch_dir}/lib"
+  linker.libraries << 'torch_cpu' << 'torch' << 'c10'
+  linker.flags << "-Wl,-rpath=#{torch_dir}/lib"
 
   file "#{dir}/src/mrb_torch.cxx" => torch_header
 end

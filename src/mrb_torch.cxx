@@ -1,7 +1,10 @@
 #include <ATen/Functions.h>
 #include <ATen/core/ivalue.h>
 #include <ATen/core/stack.h>
+#include <ATen/core/List.h>
+#include <ATen/core/Dict.h>
 #include <ATen/core/TensorBody.h>
+#include <ATen/core/dispatch/Dispatcher.h>
 
 #include <mruby.h>
 #include <mruby/array.h>
@@ -20,24 +23,30 @@ const mrb_data_type tensor_type = {
   "at::Tensor", free_tensor,
 };
 
+at::Tensor& toTensor(mrb_state *mrb, mrb_value v) {
+  mrb_assert(DATA_TYPE(v) == &tensor_type);
+  return *reinterpret_cast<at::Tensor*>(DATA_PTR(v));
+}
+
 c10::IValue toTorch(mrb_state* mrb, const mrb_value& v) {
   if (mrb_fixnum_p(v)) {
     return at::IValue(mrb_fixnum(v));
   } else if (mrb_float_p(v)) {
     return at::IValue(mrb_float(v));
   } else if (mrb_array_p(v)) {
-    at::List<at::IValue> list;
+    at::List<at::Tensor> list;
     for (mrb_int i = 0; i < RARRAY_LEN(v); ++i) {
-      list.push_back(toTorch(mrb, RARRAY_PTR(v)[i]));
+      list.push_back(toTensor(mrb, RARRAY_PTR(v)[i]));
     }
     return at::IValue(list);
   } else if (mrb_string_p(v)) {
     return at::IValue(std::string(RSTRING_PTR(v), RSTRING_LEN(v)));
   } else if (mrb_hash_p(v)) {
-    at::Dict<at::IValue, at::IValue> dict;
+    c10::Dict<std::string, at::Tensor> dict;
     mrb_value keys = mrb_hash_keys(mrb, v);
     for (mrb_int i = 0; i < RARRAY_LEN(keys); ++i) {
-      dict.insert(toTorch(mrb, RARRAY_PTR(keys)[i]), toTorch(mrb, v));
+      mrb_value key = RARRAY_PTR(keys)[i];
+      dict.insert(mrb_string_cstr(mrb, key), toTensor(mrb, mrb_hash_get(mrb, v, key)));
     }
     return at::IValue(dict);
   } else if (mrb_data_p(v) && DATA_TYPE(v) == &tensor_type) {
@@ -50,7 +59,15 @@ c10::IValue toTorch(mrb_state* mrb, const mrb_value& v) {
 mrb_value toMrb(mrb_state* mrb, const c10::IValue& v) {
   mrb_value ret;
   if (v.isTensor()) {
-    
+    at::Tensor* ptr = new at::Tensor(v.toTensor());
+    struct RData* d = mrb_data_object_alloc(
+        mrb,
+        mrb_class_get_under(mrb, mrb_class_get(mrb, "Torch"), "Tensor"),
+        ptr,
+        &tensor_type);
+    ret = mrb_obj_value(d);
+  } else {
+    mrb_assert("Unsupported toMrb type");
   }
   return ret;
 }
@@ -112,7 +129,7 @@ mrb_value tensor_to_s(mrb_state* mrb, mrb_value self) {
 
 }
 
-void mrb_mruby_torch_gem_init(mrb_state* mrb) {
+extern "C" void mrb_mruby_torch_gem_init(mrb_state* mrb) {
   RClass* t = mrb_define_module(mrb, "Torch");
   mrb_define_module_function(mrb, t, "method_missing", torch_dispatch, MRB_ARGS_ANY());
 
@@ -122,5 +139,5 @@ void mrb_mruby_torch_gem_init(mrb_state* mrb) {
   mrb_define_method(mrb, tensor, "to_s", tensor_to_s, MRB_ARGS_NONE());
 }
 
-void mrb_mruby_torch_gem_final(mrb_state *mrb) {
+extern "C" void mrb_mruby_torch_gem_final(mrb_state *mrb) {
 }
