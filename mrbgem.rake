@@ -10,16 +10,17 @@ MRuby::Gem::Specification.new 'mruby-torch' do |spec|
 
   cxx.include_paths << "#{torch_dir}/include" << "#{torch_dir}/include/torch/csrc/api/include"
 
-  file libtorch_zip => __FILE__ do
+  file libtorch_zip => __FILE__ do |t|
     FileUtils.mkdir_p File.dirname libtorch_zip
     sh "wget --continue '#{libtorch_url}' -O #{libtorch_zip}"
+    FileUtils.touch t.name
   end
 
-  file torch_header => libtorch_zip do
+  file torch_header => libtorch_zip do |t|
     Dir.chdir "#{build_dir}" do
       sh "unzip -o libtorch-#{spec.version}.zip"
-      sh "touch #{torch_header}"
     end
+    FileUtils.touch t.name
   end
 
   file "#{dir}/src/mrb_torch.cxx" => torch_header
