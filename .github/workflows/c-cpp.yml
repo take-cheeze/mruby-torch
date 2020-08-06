@@ -1,0 +1,25 @@
+name: C/C++ CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: checkout mruby
+      run: git clone git@github.com:mruby/mruby.git
+    - name: create config file
+      run: |
+        echo <<EOS > mruby/custom_config.rb
+        MRuby::Build.new do |conf|
+          toolchain :gcc
+          enable_debug
+          enable_test
+          conf.gem "#{MRUBY_ROOT}/../mruby-torch"
+        end
+        EOS
+    - name: run build and test
+      run: cd mruby MRUBY_CONFIG=./custom_config.rb ./minirake all test
