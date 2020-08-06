@@ -34,11 +34,20 @@ c10::IValue toTorch(mrb_state* mrb, const mrb_value& v) {
   } else if (mrb_float_p(v)) {
     return at::IValue(mrb_float(v));
   } else if (mrb_array_p(v)) {
-    at::List<at::Tensor> list;
-    for (mrb_int i = 0; i < RARRAY_LEN(v); ++i) {
-      list.push_back(toTensor(mrb, RARRAY_PTR(v)[i]));
+    if (RARRAY_LEN(v) > 0 && mrb_fixnum_p(RARRAY_PTR(v)[0])) {
+      std::vector<int64_t> vec;
+      for (mrb_int i = 0; i < RARRAY_LEN(v); ++i) {
+        mrb_assert(mrb_fixnum_p(RARRAY_PTR(v)[i]));
+        vec.push_back(mrb_fixnum(RARRAY_PTR(v)[i]));
+      }
+      return at::IValue(vec);
+    } else {
+      at::List<at::Tensor> list;
+      for (mrb_int i = 0; i < RARRAY_LEN(v); ++i) {
+        list.push_back(toTensor(mrb, RARRAY_PTR(v)[i]));
+      }
+      return at::IValue(list);
     }
-    return at::IValue(list);
   } else if (mrb_string_p(v)) {
     return at::IValue(std::string(RSTRING_PTR(v), RSTRING_LEN(v)));
   } else if (mrb_hash_p(v)) {
@@ -72,20 +81,20 @@ mrb_value toMrb(mrb_state* mrb, const c10::IValue& v) {
   return ret;
 }
 
-mrb_value torch_dispatch(mrb_state* mrb, mrb_value self) {
-  mrb_sym name;
-  mrb_value *argv;
-  mrb_int argc;
-  mrb_get_args(mrb, "na", &name, &argv, &argc);
-
-  torch::jit::Stack stack;
-  for (int i = 0; i < argc; ++i) {
-    stack.push_back(toTorch(mrb, argv[i]));
-  }
+mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack) {
+  using namespace std::string_literals;
 
   auto& dispatcher = c10::Dispatcher::singleton();
-  auto schema = dispatcher.findSchema(c10::OperatorName(mrb_sym2name(mrb, name), ""));
+  auto schema = dispatcher.findSchema(at::OperatorName("aten::"s + mrb_sym2name(mrb, name), ""));
   mrb_assert(schema);
+  const auto& args = schema->schema().arguments();
+  /*
+  for (size_t i = stack.size(); i < args.size(); ++i) {
+    mrb_assert(args[i].default_value());
+    stack.push_back(*args[i].default_value());
+  }
+  mrb_assert(stack.size() == args.size());
+  */
   dispatcher.callBoxed(*schema, &stack);
 
   mrb_value ret = mrb_ary_new_capa(mrb, stack.size());
@@ -96,29 +105,33 @@ mrb_value torch_dispatch(mrb_state* mrb, mrb_value self) {
   return RARRAY_LEN(ret) == 1 ? RARRAY_PTR(ret)[0] : ret;
 }
 
+mrb_value torch_dispatch(mrb_state* mrb, mrb_value self) {
+  mrb_sym name;
+  mrb_value *argv;
+  mrb_int argc;
+  mrb_get_args(mrb, "na", &name, &argv, &argc);
+
+  c10::Stack stack;
+  for (int i = 0; i < argc; ++i) {
+    stack.push_back(toTorch(mrb, argv[i]));
+  }
+
+  return callBoxed(mrb, name, stack);
+}
+
 mrb_value tensor_dispatch(mrb_state* mrb, mrb_value self) {
   mrb_sym name;
   mrb_value *argv;
   mrb_int argc;
   mrb_get_args(mrb, "na", &name, &argv, &argc);
 
-  torch::jit::Stack stack;
+  c10::Stack stack;
   stack.push_back(toTorch(mrb, self));
   for (int i = 0; i < argc; ++i) {
     stack.push_back(toTorch(mrb, argv[i]));
   }
 
-  auto& dispatcher = c10::Dispatcher::singleton();
-  auto schema = dispatcher.findSchema(c10::OperatorName(mrb_sym2name(mrb, name), ""));
-  mrb_assert(schema);
-  dispatcher.callBoxed(*schema, &stack);
-
-  mrb_value ret = mrb_ary_new_capa(mrb, stack.size());
-  for (const c10::IValue& v : stack) {
-    mrb_ary_push(mrb, ret, toMrb(mrb, v));
-  }
-
-  return RARRAY_LEN(ret) == 1 ? RARRAY_PTR(ret)[0] : ret;
+  return callBoxed(mrb, name, stack);
 }
 
 mrb_value tensor_to_s(mrb_state* mrb, mrb_value self) {
