@@ -22,4 +22,4 @@ jobs:
         end
         EOS
     - name: run build and test
-      run: cd mruby MRUBY_CONFIG=./custom_config.rb ./minirake all test
+      run: cd mruby && MRUBY_CONFIG=./custom_config.rb ./minirake all test
