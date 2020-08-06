@@ -76,7 +76,7 @@ mrb_value toMrb(mrb_state* mrb, const c10::IValue& v) {
         &tensor_type);
     ret = mrb_obj_value(d);
   } else {
-    mrb_assert("Unsupported toMrb type");
+    mrb_assert(false);
   }
   return ret;
 }
@@ -88,13 +88,11 @@ mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack) {
   auto schema = dispatcher.findSchema(at::OperatorName("aten::"s + mrb_sym2name(mrb, name), ""));
   mrb_assert(schema);
   const auto& args = schema->schema().arguments();
-  /*
   for (size_t i = stack.size(); i < args.size(); ++i) {
     mrb_assert(args[i].default_value());
     stack.push_back(*args[i].default_value());
   }
   mrb_assert(stack.size() == args.size());
-  */
   dispatcher.callBoxed(*schema, &stack);
 
   mrb_value ret = mrb_ary_new_capa(mrb, stack.size());
@@ -109,7 +107,7 @@ mrb_value torch_dispatch(mrb_state* mrb, mrb_value self) {
   mrb_sym name;
   mrb_value *argv;
   mrb_int argc;
-  mrb_get_args(mrb, "na", &name, &argv, &argc);
+  mrb_get_args(mrb, "n*", &name, &argv, &argc);
 
   c10::Stack stack;
   for (int i = 0; i < argc; ++i) {
