@@ -21,5 +21,6 @@ jobs:
           conf.gem "#{MRUBY_ROOT}/../mruby-torch"
         end
         EOS
+    - run: cat mruby/custom_config.rb
     - name: run build and test
       run: cd mruby && MRUBY_CONFIG=./custom_config.rb ./minirake all test
