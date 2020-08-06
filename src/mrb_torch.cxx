@@ -81,8 +81,12 @@ mrb_value toMrb(mrb_state* mrb, const c10::IValue& v) {
   return ret;
 }
 
-mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack) {
+mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack, mrb_int argc, const mrb_value* argv) {
   using namespace std::string_literals;
+
+  for (int i = 0; i < argc; ++i) {
+    stack.push_back(toTorch(mrb, argv[i]));
+  }
 
   auto& dispatcher = c10::Dispatcher::singleton();
   auto schema = dispatcher.findSchema(at::OperatorName("aten::"s + mrb_sym2name(mrb, name), ""));
@@ -110,11 +114,7 @@ mrb_value torch_dispatch(mrb_state* mrb, mrb_value self) {
   mrb_get_args(mrb, "n*", &name, &argv, &argc);
 
   c10::Stack stack;
-  for (int i = 0; i < argc; ++i) {
-    stack.push_back(toTorch(mrb, argv[i]));
-  }
-
-  return callBoxed(mrb, name, stack);
+  return callBoxed(mrb, name, stack, argc, argv);
 }
 
 mrb_value tensor_dispatch(mrb_state* mrb, mrb_value self) {
@@ -124,12 +124,8 @@ mrb_value tensor_dispatch(mrb_state* mrb, mrb_value self) {
   mrb_get_args(mrb, "na", &name, &argv, &argc);
 
   c10::Stack stack;
-  stack.push_back(toTorch(mrb, self));
-  for (int i = 0; i < argc; ++i) {
-    stack.push_back(toTorch(mrb, argv[i]));
-  }
-
-  return callBoxed(mrb, name, stack);
+  stack.push_back(toTensor(mrb, self));
+  return callBoxed(mrb, name, stack, argc, argv);
 }
 
 mrb_value tensor_to_s(mrb_state* mrb, mrb_value self) {
