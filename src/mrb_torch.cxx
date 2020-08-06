@@ -71,7 +71,7 @@ mrb_value toMrb(mrb_state* mrb, const c10::IValue& v) {
     at::Tensor* ptr = new at::Tensor(v.toTensor());
     struct RData* d = mrb_data_object_alloc(
         mrb,
-        mrb_class_get_under(mrb, mrb_class_get(mrb, "Torch"), "Tensor"),
+        mrb_class_get_under(mrb, mrb_module_get(mrb, "Torch"), "Tensor"),
         ptr,
         &tensor_type);
     ret = mrb_obj_value(d);
