@@ -134,6 +134,14 @@ mrb_value tensor_to_s(mrb_state* mrb, mrb_value self) {
   return mrb_str_new(mrb, str.data(), str.size());
 }
 
+mrb_value tensor_inspect(mrb_state* mrb, mrb_value self) {
+  at::Tensor* t = reinterpret_cast<at::Tensor*>(DATA_PTR(self));
+  std::ostringstream oss;
+  oss << *t;
+  std::string str = oss.str();
+  return mrb_str_new(mrb, str.data(), str.size());
+}
+
 }
 
 extern "C" void mrb_mruby_torch_gem_init(mrb_state* mrb) {
@@ -144,6 +152,7 @@ extern "C" void mrb_mruby_torch_gem_init(mrb_state* mrb) {
   MRB_SET_INSTANCE_TT(tensor, MRB_TT_DATA);
   mrb_define_method(mrb, tensor, "method_missing", tensor_dispatch, MRB_ARGS_ANY());
   mrb_define_method(mrb, tensor, "to_s", tensor_to_s, MRB_ARGS_NONE());
+  mrb_define_method(mrb, tensor, "inspect", tensor_inspect, MRB_ARGS_NONE());
 }
 
 extern "C" void mrb_mruby_torch_gem_final(mrb_state *mrb) {
