@@ -10,7 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: checkout mruby
-      run: git clone git@github.com:mruby/mruby.git
+      run: git clone https://github.com/mruby/mruby.git
     - name: create config file
       run: |
         echo <<EOS > mruby/custom_config.rb
