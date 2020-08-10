@@ -155,13 +155,13 @@ mrb_value tensor_dispatch(mrb_state* mrb, mrb_value self) {
 }
 
 mrb_value tensor_to_s(mrb_state* mrb, mrb_value self) {
-  at::Tensor* t = reinterpret_cast<at::Tensor*>(DATA_PTR(self));
+  at::Tensor& t = toTensor(mrb, self);
   std::string str = t->toString();
   return mrb_str_new(mrb, str.data(), str.size());
 }
 
 mrb_value tensor_inspect(mrb_state* mrb, mrb_value self) {
-  at::Tensor* t = reinterpret_cast<at::Tensor*>(DATA_PTR(self));
+  at::Tensor& t = toTensor(mrb, self);
   std::ostringstream oss;
   oss << *t;
   std::string str = oss.str();
