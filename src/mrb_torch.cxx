@@ -99,12 +99,15 @@ mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack, mrb_int arg
   mrb_assert(stack.size() == args.size());
   dispatcher.callBoxed(*schema, &stack);
 
+  if (stack.size() == 1) {
+    return toMrb(mrb, stack.front());
+  }
+
   mrb_value ret = mrb_ary_new_capa(mrb, stack.size());
   for (const c10::IValue& v : stack) {
     mrb_ary_push(mrb, ret, toMrb(mrb, v));
   }
-
-  return RARRAY_LEN(ret) == 1 ? RARRAY_PTR(ret)[0] : ret;
+  return ret;
 }
 
 mrb_value torch_dispatch(mrb_state* mrb, mrb_value self) {
