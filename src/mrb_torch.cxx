@@ -96,7 +96,12 @@ mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack, mrb_int arg
 
   auto& dispatcher = c10::Dispatcher::singleton();
   auto schema = dispatcher.findSchema(at::OperatorName("aten::"s + mrb_sym2name(mrb, name), ""));
-  mrb_assert(schema);
+  if (!schema && !stack.empty() && stack.front().isTensor()) {
+    schema = dispatcher.findSchema(at::OperatorName("aten::"s + mrb_sym2name(mrb, name), "Tensor"));
+  }
+  if (!schema) {
+    mrb_raisef(mrb, E_NOMETHOD_ERROR, "Couldn't find method: %S", mrb_symbol_value(name));
+  }
   const auto& args = schema->schema().arguments();
   for (size_t i = stack.size(); i < args.size(); ++i) {
     const c10::Argument& arg = args[i];
@@ -142,7 +147,7 @@ mrb_value tensor_dispatch(mrb_state* mrb, mrb_value self) {
   mrb_sym name;
   mrb_value *argv;
   mrb_int argc;
-  mrb_get_args(mrb, "na", &name, &argv, &argc);
+  mrb_get_args(mrb, "n*", &name, &argv, &argc);
 
   c10::Stack stack;
   stack.push_back(toTensor(mrb, self));
