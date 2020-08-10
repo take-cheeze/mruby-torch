@@ -3,9 +3,9 @@ MRuby::Build.new do |conf|
   enable_debug
   enable_test
 
-  conf.cc.flags << '-fsanitize=address,leak,undefined'
-  conf.cxx.flags << '-fsanitize=address,leak,undefined'
-  conf.linker.flags << '-fsanitize=address,leak,undefined'
+  conf.cc.flags << '-fsanitize=address,undefined'
+  conf.cxx.flags << '-fsanitize=address,undefined'
+  conf.linker.flags << '-fsanitize=address,undefined'
 
   conf.gem "#{MRUBY_ROOT}/.."
 end
