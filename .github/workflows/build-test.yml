@@ -15,4 +15,4 @@ jobs:
       run: cp .github/workflows/custom_config.rb mruby/
     - run: cat mruby/custom_config.rb
     - name: run build and test
-      run: cd mruby && MRUBY_CONFIG=./custom_config.rb ./minirake all test
+      run: cd mruby && MRUBY_CONFIG=./custom_config.rb ASAN_OPTIONS=detect_leaks=0 ./minirake all test
