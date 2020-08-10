@@ -84,6 +84,12 @@ mrb_value toMrb(mrb_state* mrb, const c10::IValue& v) {
 mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack, mrb_int argc, const mrb_value* argv) {
   using namespace std::string_literals;
 
+  mrb_value keywords = mrb_nil_value();
+  if (argc >= 1 && mrb_hash_p(argv[argc - 1])) {
+    keywords = mrb_obj_dup(mrb, argv[argc - 1]);
+    argc -= 1;
+  }
+
   for (int i = 0; i < argc; ++i) {
     stack.push_back(toTorch(mrb, argv[i]));
   }
@@ -93,8 +99,20 @@ mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack, mrb_int arg
   mrb_assert(schema);
   const auto& args = schema->schema().arguments();
   for (size_t i = stack.size(); i < args.size(); ++i) {
-    mrb_assert(args[i].default_value());
-    stack.push_back(*args[i].default_value());
+    const c10::Argument& arg = args[i];
+    if (mrb_test(keywords)) {
+      mrb_value key_val = mrb_hash_get(mrb, keywords, mrb_symbol_value(mrb_intern_cstr(mrb, arg.name().c_str())));
+      if (mrb_test(key_val)) {
+        stack.push_back(toTorch(mrb, key_val));
+        continue;
+      }
+    }
+
+    // Fallback to default value
+    if (!arg.default_value()) {
+      mrb_raisef(mrb, E_ARGUMENT_ERROR, "No default value for argument: %S", mrb_intern_cstr(mrb, arg.name().c_str()));
+    }
+    stack.push_back(*arg.default_value());
   }
   mrb_assert(stack.size() == args.size());
   dispatcher.callBoxed(*schema, &stack);
