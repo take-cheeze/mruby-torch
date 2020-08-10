@@ -13,3 +13,8 @@ assert 'Tensor#add' do
   res = t.add Torch.ones([2, 2])
   assert_equal 'CPUFloatType', res.to_s
 end
+
+assert 'Tensor#shape' do
+  t = Torch.rand(size: [10, 10])
+  assert_equal [10, 10], t.shape
+end
