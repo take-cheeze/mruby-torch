@@ -36,8 +36,11 @@ MRuby::Gem::Specification.new 'mruby-torch' do |spec|
   cxx.flags << '-std=c++14'
 
   linker.library_paths << "#{torch_dir}/lib"
-  linker.libraries += %w[torch_cpu torch c10_cuda c10]
-  linker.flags << "-Wl,-rpath=#{torch_dir}/lib" unless is_macos
+  linker.libraries += %w[torch_cpu torch c10]
+  unless is_macos
+    linker.flags << "-Wl,-rpath=#{torch_dir}/lib"
+    linker.libraries << 'c10_cuda'
+  end
 
   file "#{dir}/src/mrb_torch.cxx" => torch_header
 end
