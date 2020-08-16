@@ -55,10 +55,10 @@ c10::IValue toTorch(mrb_state* mrb, const mrb_value& v) {
     mrb_value keys = mrb_hash_keys(mrb, v);
     for (mrb_int i = 0; i < RARRAY_LEN(keys); ++i) {
       mrb_value key = RARRAY_PTR(keys)[i];
-      dict.insert(mrb_string_cstr(mrb, key), toTensor(mrb, mrb_hash_get(mrb, v, key)));
+      dict.insert(mrb_string_value_cstr(mrb, &key), toTensor(mrb, mrb_hash_get(mrb, v, key)));
     }
     return at::IValue(dict);
-  } else if (mrb_data_p(v) && DATA_TYPE(v) == &tensor_type) {
+  } else if (mrb_type(v) == MRB_TT_DATA && DATA_TYPE(v) == &tensor_type) {
     return at::IValue(*static_cast<at::Tensor*>(DATA_PTR(v)));
   }
   mrb_assert(false);
