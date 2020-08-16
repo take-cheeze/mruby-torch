@@ -3,10 +3,15 @@ MRuby::Gem::Specification.new 'mruby-torch' do |spec|
   spec.authors = 'take-cheeze'
   spec.version = '1.6.0'
 
-  target = 'cu102'
-  target_suffix = "%2B\#{target}"
-  target_suffix = '' if target == 'cu102'
-  libtorch_url = "https://download.pytorch.org/libtorch/#{target}/libtorch-cxx11-abi-shared-with-deps-#{spec.version}#{target_suffix}.zip"
+  if `uname -s`.strip == 'Darwin'
+    target = 'cpu'
+    libtorch_url = "https://download.pytorch.org/libtorch/#{target}/libtorch-macos-#{spec.version}.zip"
+  else
+    target = 'cu102'
+    target_suffix = "%2B\#{target}"
+    target_suffix = '' if target == 'cu102'
+    libtorch_url = "https://download.pytorch.org/libtorch/#{target}/libtorch-cxx11-abi-shared-with-deps-#{spec.version}#{target_suffix}.zip"
+  end
   libtorch_zip = "#{build_dir}/libtorch-#{spec.version}-#{target}.zip"
   torch_dir = "#{build_dir}/libtorch"
   torch_header = "#{torch_dir}/include/ATen/Functions.h"

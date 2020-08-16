@@ -1,11 +1,20 @@
-name: C/C++ CI
+name: mrbgem test
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-18.04, macos-latest]
+        mruby_version: [2.1.2, 2.1.0, 2.0.0, 1.4.1, 1.2.0]
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
