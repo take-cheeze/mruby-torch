@@ -3,8 +3,11 @@ MRuby::Gem::Specification.new 'mruby-torch' do |spec|
   spec.authors = 'take-cheeze'
   spec.version = '1.6.0'
 
-  libtorch_url = "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-#{spec.version}%2Bcpu.zip"
-  libtorch_zip = "#{build_dir}/libtorch-#{spec.version}.zip"
+  target = 'cu102'
+  target_suffix = "%2B\#{target}"
+  target_suffix = '' if target == 'cu102'
+  libtorch_url = "https://download.pytorch.org/libtorch/#{target}/libtorch-cxx11-abi-shared-with-deps-#{spec.version}#{target_suffix}.zip"
+  libtorch_zip = "#{build_dir}/libtorch-#{spec.version}-#{target}.zip"
   torch_dir = "#{build_dir}/libtorch"
   torch_header = "#{torch_dir}/include/ATen/Functions.h"
 
@@ -18,13 +21,13 @@ MRuby::Gem::Specification.new 'mruby-torch' do |spec|
 
   file torch_header => libtorch_zip do |t|
     Dir.chdir "#{build_dir}" do
-      sh "unzip -q -o libtorch-#{spec.version}.zip"
+      sh "unzip -q -o #{libtorch_zip}"
     end
     FileUtils.touch t.name
   end
 
   linker.library_paths << "#{torch_dir}/lib"
-  linker.libraries << 'torch_cpu' << 'torch' << 'c10'
+  linker.libraries << 'torch_cpu' << 'torch' << 'c10_cuda' << 'c10'
   linker.flags << "-Wl,-rpath=#{torch_dir}/lib"
 
   file "#{dir}/src/mrb_torch.cxx" => torch_header
