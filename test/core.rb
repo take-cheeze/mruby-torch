@@ -18,3 +18,9 @@ assert 'Tensor#shape' do
   t = Torch.rand(size: [10, 10])
   assert_equal [10, 10], t.shape
 end
+
+assert 'device argument' do
+  assert_nothing_raised do
+    Torch.rand([10, 10], device: 'cpu')
+  end
+end
