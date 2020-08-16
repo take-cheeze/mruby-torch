@@ -6,6 +6,8 @@
 #include <ATen/core/TensorBody.h>
 #include <ATen/core/dispatch/Dispatcher.h>
 
+#include <torch/cuda.h>
+
 #include <mruby.h>
 #include <mruby/array.h>
 #include <mruby/class.h>
@@ -177,6 +179,14 @@ mrb_value tensor_sizes(mrb_state* mrb, mrb_value self) {
   return ret;
 }
 
+mrb_value cuda_available_p(mrb_state*, mrb_value) {
+  return mrb_bool_value(torch::cuda::is_available());
+}
+
+mrb_value cuda_device_count(mrb_state*, mrb_value) {
+  return mrb_fixnum_value(torch::cuda::device_count());
+}
+
 }
 
 extern "C" void mrb_mruby_torch_gem_init(mrb_state* mrb) {
@@ -189,6 +199,10 @@ extern "C" void mrb_mruby_torch_gem_init(mrb_state* mrb) {
   mrb_define_method(mrb, tensor, "to_s", tensor_to_s, MRB_ARGS_NONE());
   mrb_define_method(mrb, tensor, "inspect", tensor_inspect, MRB_ARGS_NONE());
   mrb_define_method(mrb, tensor, "sizes", tensor_sizes, MRB_ARGS_NONE());
+
+  RClass* cuda = mrb_define_module_under(mrb, t, "CUDA");
+  mrb_define_module_function(mrb, cuda, "available?", cuda_available_p, MRB_ARGS_NONE());
+  mrb_define_module_function(mrb, cuda, "device_count", cuda_device_count, MRB_ARGS_NONE());
 }
 
 extern "C" void mrb_mruby_torch_gem_final(mrb_state *mrb) {
