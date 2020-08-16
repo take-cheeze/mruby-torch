@@ -45,4 +45,6 @@ MRuby::Gem::Specification.new 'mruby-torch' do |spec|
   end
 
   file "#{dir}/src/mrb_torch.cxx" => torch_header
+
+  ENV['LSAN_OPTIONS'] = "suppressions=#{dir}/leak.txt"
 end
