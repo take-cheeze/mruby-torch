@@ -6,6 +6,8 @@
 #include <ATen/core/TensorBody.h>
 #include <ATen/core/dispatch/Dispatcher.h>
 
+#include <torch/cuda.h>
+
 #include <mruby.h>
 #include <mruby/array.h>
 #include <mruby/class.h>
@@ -28,7 +30,20 @@ at::Tensor& toTensor(mrb_state *mrb, mrb_value v) {
   return *reinterpret_cast<at::Tensor*>(DATA_PTR(v));
 }
 
-c10::IValue toTorch(mrb_state* mrb, const mrb_value& v) {
+c10::IValue toTorch(mrb_state* mrb, const mrb_value& v, const c10::Argument* arg_sch) {
+  if (arg_sch && arg_sch->type()->kind() == c10::TypeKind::OptionalType && mrb_nil_p(v)) {
+    return c10::IValue();
+  }
+
+  c10::TypePtr ex_type;
+  if (arg_sch) {
+    if (arg_sch->type()->kind() == c10::TypeKind::OptionalType) {
+      ex_type = arg_sch->type()->expect<c10::OptionalType>()->getElementType();
+    } else {
+      ex_type = arg_sch->type();
+    }
+  }
+
   if (mrb_fixnum_p(v)) {
     return at::IValue(mrb_fixnum(v));
   } else if (mrb_float_p(v)) {
@@ -49,6 +64,10 @@ c10::IValue toTorch(mrb_state* mrb, const mrb_value& v) {
       return at::IValue(list);
     }
   } else if (mrb_string_p(v)) {
+    if (ex_type && ex_type->kind() == c10::TypeKind::DeviceObjType) {
+      mrb_value dev_name = v;
+      return at::IValue(at::Device(mrb_string_value_cstr(mrb, &dev_name)));
+    }
     return at::IValue(std::string(RSTRING_PTR(v), RSTRING_LEN(v)));
   } else if (mrb_hash_p(v)) {
     c10::Dict<std::string, at::Tensor> dict;
@@ -91,7 +110,7 @@ mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack, mrb_int arg
   }
 
   for (int i = 0; i < argc; ++i) {
-    stack.push_back(toTorch(mrb, argv[i]));
+    stack.push_back(toTorch(mrb, argv[i], nullptr));
   }
 
   auto& dispatcher = c10::Dispatcher::singleton();
@@ -108,7 +127,7 @@ mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack, mrb_int arg
     if (mrb_test(keywords)) {
       mrb_value key_val = mrb_hash_get(mrb, keywords, mrb_symbol_value(mrb_intern_cstr(mrb, arg.name().c_str())));
       if (mrb_test(key_val)) {
-        stack.push_back(toTorch(mrb, key_val));
+        stack.push_back(toTorch(mrb, key_val, &arg));
         continue;
       }
     }
@@ -177,6 +196,14 @@ mrb_value tensor_sizes(mrb_state* mrb, mrb_value self) {
   return ret;
 }
 
+mrb_value cuda_available_p(mrb_state*, mrb_value) {
+  return mrb_bool_value(torch::cuda::is_available());
+}
+
+mrb_value cuda_device_count(mrb_state*, mrb_value) {
+  return mrb_fixnum_value(torch::cuda::device_count());
+}
+
 }
 
 extern "C" void mrb_mruby_torch_gem_init(mrb_state* mrb) {
@@ -189,6 +216,10 @@ extern "C" void mrb_mruby_torch_gem_init(mrb_state* mrb) {
   mrb_define_method(mrb, tensor, "to_s", tensor_to_s, MRB_ARGS_NONE());
   mrb_define_method(mrb, tensor, "inspect", tensor_inspect, MRB_ARGS_NONE());
   mrb_define_method(mrb, tensor, "sizes", tensor_sizes, MRB_ARGS_NONE());
+
+  RClass* cuda = mrb_define_module_under(mrb, t, "CUDA");
+  mrb_define_module_function(mrb, cuda, "available?", cuda_available_p, MRB_ARGS_NONE());
+  mrb_define_module_function(mrb, cuda, "device_count", cuda_device_count, MRB_ARGS_NONE());
 }
 
 extern "C" void mrb_mruby_torch_gem_final(mrb_state *mrb) {
