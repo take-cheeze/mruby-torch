@@ -196,6 +196,25 @@ mrb_value tensor_sizes(mrb_state* mrb, mrb_value self) {
   return ret;
 }
 
+mrb_value tensor_device(mrb_state* mrb, mrb_value self) {
+  const at::Tensor& t = toTensor(mrb, self);
+  std::string dev_str = t.device().str();
+  return mrb_str_new(mrb, dev_str.data(), dev_str.size());
+}
+
+mrb_value tensor_dtype(mrb_state* mrb, mrb_value self) {
+  const at::Tensor& t = toTensor(mrb, self);
+  at::ScalarType dtype = t.scalar_type();
+  switch (dtype) {
+#define check(t, name) case at::k ## name: return mrb_symbol_value(mrb_intern_lit(mrb, #name));
+    AT_FORALL_SCALAR_TYPES(check)
+#undef check
+
+  default:
+    return mrb_symbol_value(mrb_intern_lit(mrb, "unknown"));
+  }
+}
+
 mrb_value cuda_available_p(mrb_state*, mrb_value) {
   return mrb_bool_value(torch::cuda::is_available());
 }
@@ -216,6 +235,8 @@ extern "C" void mrb_mruby_torch_gem_init(mrb_state* mrb) {
   mrb_define_method(mrb, tensor, "to_s", tensor_to_s, MRB_ARGS_NONE());
   mrb_define_method(mrb, tensor, "inspect", tensor_inspect, MRB_ARGS_NONE());
   mrb_define_method(mrb, tensor, "sizes", tensor_sizes, MRB_ARGS_NONE());
+  mrb_define_method(mrb, tensor, "device", tensor_device, MRB_ARGS_NONE());
+  mrb_define_method(mrb, tensor, "dtype", tensor_dtype, MRB_ARGS_NONE());
 
   RClass* cuda = mrb_define_module_under(mrb, t, "CUDA");
   mrb_define_module_function(mrb, cuda, "available?", cuda_available_p, MRB_ARGS_NONE());
