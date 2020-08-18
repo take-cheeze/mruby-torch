@@ -24,3 +24,11 @@ assert 'device argument' do
     Torch.rand([10, 10], device: 'cpu')
   end
 end
+
+assert 'Tensor#device' do
+  assert_equal 'cpu', Torch.rand(size: [10, 10]).device
+end
+
+assert 'Tensor#dtype' do
+  assert_equal :Float, Torch.rand(size: [10, 10]).dtype
+end
