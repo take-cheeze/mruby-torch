@@ -134,7 +134,7 @@ mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack, mrb_int arg
 
     // Fallback to default value
     if (!arg.default_value()) {
-      mrb_raisef(mrb, E_ARGUMENT_ERROR, "No default value for argument: %S", mrb_intern_cstr(mrb, arg.name().c_str()));
+      mrb_raisef(mrb, E_ARGUMENT_ERROR, "No default value for argument: %S", mrb_symbol_value(mrb_intern_cstr(mrb, arg.name().c_str())));
     }
     stack.push_back(*arg.default_value());
   }
