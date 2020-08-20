@@ -63,12 +63,20 @@ c10::IValue toTorch(mrb_state* mrb, const mrb_value& v, const c10::Argument* arg
       }
       return at::IValue(list);
     }
-  } else if (mrb_string_p(v)) {
-    if (ex_type && ex_type->kind() == c10::TypeKind::DeviceObjType) {
-      mrb_value dev_name = v;
-      return at::IValue(at::Device(mrb_string_value_cstr(mrb, &dev_name)));
+  } else if (mrb_string_p(v) || mrb_symbol_p(v)) {
+    mrb_value str = v;
+    const std::string cstr = mrb_string_p(v)? mrb_string_value_cstr(mrb, &str) : mrb_sym2name(mrb, mrb_symbol(v));
+    if (ex_type && arg_sch->name() == "dtype") {
+      at::ScalarType dtype =
+#define check(t, name) (cstr == #name)? at::k##name :
+        AT_FORALL_SCALAR_TYPES(check)
+#undef check
+          at::ScalarType::Undefined;
+      return at::IValue(int(dtype));
+    } else if (ex_type && ex_type->kind() == c10::TypeKind::DeviceObjType) {
+      return at::IValue(at::Device(cstr));
     }
-    return at::IValue(std::string(RSTRING_PTR(v), RSTRING_LEN(v)));
+    return at::IValue(std::string(cstr));
   } else if (mrb_hash_p(v)) {
     c10::Dict<std::string, at::Tensor> dict;
     mrb_value keys = mrb_hash_keys(mrb, v);
