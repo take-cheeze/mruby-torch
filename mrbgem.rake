@@ -17,7 +17,7 @@ MRuby::Gem::Specification.new 'mruby-torch' do |spec|
     libtorch_url = "https://download.pytorch.org/libtorch/#{target}/libtorch-cxx11-abi-shared-with-deps-#{spec.version}#{target_suffix}.zip"
   end
   libtorch_zip = "#{cache_dir}/libtorch-#{spec.version}-#{target}.zip"
-  torch_dir = "#{build_dir}/libtorch"
+  torch_dir = "#{cache_dir}/#{spec.version}-#{target}/libtorch"
   torch_header = "#{torch_dir}/include/ATen/Functions.h"
 
   cxx.include_paths << "#{torch_dir}/include" << "#{torch_dir}/include/torch/csrc/api/include"
@@ -29,8 +29,9 @@ MRuby::Gem::Specification.new 'mruby-torch' do |spec|
   end
 
   file torch_header => libtorch_zip do |t|
-    Dir.chdir "#{build_dir}" do
-      sh "unzip -q -o #{libtorch_zip}"
+    FileUtils.mkdir_p torch_dir
+    Dir.chdir File.dirname torch_dir do
+      sh "unzip -nq #{libtorch_zip}"
     end
     FileUtils.touch t.name
   end
