@@ -50,10 +50,10 @@ c10::IValue toTorch(mrb_state* mrb, const mrb_value& v, const c10::Argument* arg
     return at::IValue(mrb_float(v));
   } else if (mrb_array_p(v)) {
     if (RARRAY_LEN(v) > 0 && mrb_fixnum_p(RARRAY_PTR(v)[0])) {
-      std::vector<int64_t> vec;
+      std::vector<int64_t> vec(RARRAY_LEN(v));
       for (mrb_int i = 0; i < RARRAY_LEN(v); ++i) {
         mrb_assert(mrb_fixnum_p(RARRAY_PTR(v)[i]));
-        vec.push_back(mrb_fixnum(RARRAY_PTR(v)[i]));
+        vec[i] = mrb_fixnum(RARRAY_PTR(v)[i]);
       }
       return at::IValue(vec);
     } else {
