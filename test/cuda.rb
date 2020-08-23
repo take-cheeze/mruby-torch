@@ -2,7 +2,7 @@ assert 'Torch::CUDA.available?' do
   assert_nothing_raised { Torch::CUDA.available? }
 end
 
-assert 'Torch::CUDA.available?' do
+assert 'Torch::CUDA.device_count' do
   assert_true Torch::CUDA.device_count >= 0
 end
 

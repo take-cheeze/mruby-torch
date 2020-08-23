@@ -31,4 +31,5 @@ end
 
 assert 'Tensor#dtype' do
   assert_equal :Float, Torch.rand(size: [10, 10]).dtype
+  assert_equal :Double, Torch.rand(size: [10, 10], dtype: :Double).dtype
 end

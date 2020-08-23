@@ -50,10 +50,10 @@ c10::IValue toTorch(mrb_state* mrb, const mrb_value& v, const c10::Argument* arg
     return at::IValue(mrb_float(v));
   } else if (mrb_array_p(v)) {
     if (RARRAY_LEN(v) > 0 && mrb_fixnum_p(RARRAY_PTR(v)[0])) {
-      std::vector<int64_t> vec;
+      std::vector<int64_t> vec(RARRAY_LEN(v));
       for (mrb_int i = 0; i < RARRAY_LEN(v); ++i) {
         mrb_assert(mrb_fixnum_p(RARRAY_PTR(v)[i]));
-        vec.push_back(mrb_fixnum(RARRAY_PTR(v)[i]));
+        vec[i] = mrb_fixnum(RARRAY_PTR(v)[i]);
       }
       return at::IValue(vec);
     } else {
@@ -63,12 +63,20 @@ c10::IValue toTorch(mrb_state* mrb, const mrb_value& v, const c10::Argument* arg
       }
       return at::IValue(list);
     }
-  } else if (mrb_string_p(v)) {
-    if (ex_type && ex_type->kind() == c10::TypeKind::DeviceObjType) {
-      mrb_value dev_name = v;
-      return at::IValue(at::Device(mrb_string_value_cstr(mrb, &dev_name)));
+  } else if (mrb_string_p(v) || mrb_symbol_p(v)) {
+    mrb_value str = v;
+    const std::string cstr = mrb_string_p(v)? mrb_string_value_cstr(mrb, &str) : mrb_sym2name(mrb, mrb_symbol(v));
+    if (ex_type && arg_sch->name() == "dtype") {
+      at::ScalarType dtype =
+#define check(t, name) (cstr == #name)? at::k##name :
+        AT_FORALL_SCALAR_TYPES(check)
+#undef check
+          at::ScalarType::Undefined;
+      return at::IValue(int(dtype));
+    } else if (ex_type && ex_type->kind() == c10::TypeKind::DeviceObjType) {
+      return at::IValue(at::Device(cstr));
     }
-    return at::IValue(std::string(RSTRING_PTR(v), RSTRING_LEN(v)));
+    return at::IValue(std::string(cstr));
   } else if (mrb_hash_p(v)) {
     c10::Dict<std::string, at::Tensor> dict;
     mrb_value keys = mrb_hash_keys(mrb, v);
@@ -109,10 +117,6 @@ mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack, mrb_int arg
     argc -= 1;
   }
 
-  for (int i = 0; i < argc; ++i) {
-    stack.push_back(toTorch(mrb, argv[i], nullptr));
-  }
-
   auto& dispatcher = c10::Dispatcher::singleton();
   auto schema = dispatcher.findSchema(at::OperatorName("aten::"s + mrb_sym2name(mrb, name), ""));
   if (!schema && !stack.empty() && stack.front().isTensor()) {
@@ -121,7 +125,13 @@ mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack, mrb_int arg
   if (!schema) {
     mrb_raisef(mrb, E_NOMETHOD_ERROR, "Couldn't find method: %S", mrb_symbol_value(name));
   }
+
   const auto& args = schema->schema().arguments();
+
+  for (int i = 0; i < argc; ++i) {
+    stack.push_back(toTorch(mrb, argv[i], &args[stack.size()]));
+  }
+
   for (size_t i = stack.size(); i < args.size(); ++i) {
     const c10::Argument& arg = args[i];
     if (mrb_test(keywords)) {
@@ -134,7 +144,7 @@ mrb_value callBoxed(mrb_state* mrb, mrb_sym name, c10::Stack& stack, mrb_int arg
 
     // Fallback to default value
     if (!arg.default_value()) {
-      mrb_raisef(mrb, E_ARGUMENT_ERROR, "No default value for argument: %S", mrb_intern_cstr(mrb, arg.name().c_str()));
+      mrb_raisef(mrb, E_ARGUMENT_ERROR, "No default value for argument: %S", mrb_symbol_value(mrb_intern_cstr(mrb, arg.name().c_str())));
     }
     stack.push_back(*arg.default_value());
   }

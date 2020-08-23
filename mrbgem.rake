@@ -3,6 +3,8 @@ MRuby::Gem::Specification.new 'mruby-torch' do |spec|
   spec.authors = 'take-cheeze'
   spec.version = '1.6.0'
 
+  cache_dir = "#{ENV['XDG_CACHE_HOME'] || "#{ENV['HOME']}/.cache"}/mruby-torch"
+
   is_macos = false
   if `uname -s`.strip == 'Darwin'
     target = 'cpu'
@@ -14,8 +16,8 @@ MRuby::Gem::Specification.new 'mruby-torch' do |spec|
     target_suffix = '' if target == 'cu102'
     libtorch_url = "https://download.pytorch.org/libtorch/#{target}/libtorch-cxx11-abi-shared-with-deps-#{spec.version}#{target_suffix}.zip"
   end
-  libtorch_zip = "#{build_dir}/libtorch-#{spec.version}-#{target}.zip"
-  torch_dir = "#{build_dir}/libtorch"
+  libtorch_zip = "#{cache_dir}/libtorch-#{spec.version}-#{target}.zip"
+  torch_dir = "#{cache_dir}/#{spec.version}-#{target}/libtorch"
   torch_header = "#{torch_dir}/include/ATen/Functions.h"
 
   cxx.include_paths << "#{torch_dir}/include" << "#{torch_dir}/include/torch/csrc/api/include"
@@ -27,8 +29,9 @@ MRuby::Gem::Specification.new 'mruby-torch' do |spec|
   end
 
   file torch_header => libtorch_zip do |t|
-    Dir.chdir "#{build_dir}" do
-      sh "unzip -q -o #{libtorch_zip}"
+    FileUtils.mkdir_p torch_dir
+    Dir.chdir File.dirname torch_dir do
+      sh "unzip -nq #{libtorch_zip}"
     end
     FileUtils.touch t.name
   end
@@ -40,8 +43,8 @@ MRuby::Gem::Specification.new 'mruby-torch' do |spec|
   if is_macos
     linker.flags += %W[-Xlinker -rpath -Xlinker #{torch_dir}/lib]
   else
-    linker.flags << "-Wl,-rpath=#{torch_dir}/lib"
-    linker.libraries << 'torch_cuda' << 'c10_cuda'
+    linker.flags << "-Wl,-rpath=#{torch_dir}/lib" <<
+      '-Wl,--no-as-needed' << '-lc10_cuda' << '-ltorch_cuda' << '-Wl,--as-needed'
   end
 
   file "#{dir}/src/mrb_torch.cxx" => torch_header
